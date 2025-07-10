@@ -21,6 +21,8 @@ const (
 type apiConfig struct {
 	fileServerHits atomic.Int32
 	db             *database.Queries
+	rawDbConn      *sql.DB
+	platform       string
 }
 
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
@@ -63,13 +65,16 @@ func main() {
 	apiCfg := apiConfig{
 		fileServerHits: atomic.Int32{},
 		db:             dbQueries,
+		rawDbConn:      db,
+		platform:       os.Getenv("PLATFORM"),
 	}
 
 	mux := http.NewServeMux()
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(FilepathRoot)))))
 
 	mux.HandleFunc("GET /api/healthz", handlerReadiness)
-	mux.HandleFunc("POST /api/validate_chirp", handlerValidateChirp)
+	mux.HandleFunc("POST /api/users", apiCfg.handlerCreateUser)
+	mux.HandleFunc("POST /api/chirps", apiCfg.handlerCreateChirp)
 
 	mux.HandleFunc("GET /admin/metrics", apiCfg.handlerMetrics)
 	mux.HandleFunc("POST /admin/reset", apiCfg.handlerReset)
