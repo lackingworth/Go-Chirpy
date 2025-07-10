@@ -3,14 +3,31 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 )
+
+var (
+	BadWords = []string{"kerfuffle", "sharbert", "fornax"}
+)
+
+func badWordReplacer(txt string, badWords ...string) string {
+	sliceOfStrings := strings.Fields(txt)
+	for i, splitString := range sliceOfStrings {
+		for _, badWord := range badWords {
+			if strings.ToLower(splitString) == strings.ToLower(badWord) {
+				sliceOfStrings[i] = "****"
+			}
+		}
+	}
+	return strings.Join(sliceOfStrings, " ")
+}
 
 func handlerValidateChirp(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
 		Body string `json:"body"`
 	}
 	type returnVals struct {
-		Valid bool `json:"valid"`
+		CleanedBody string `json:"cleaned_body"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -28,6 +45,6 @@ func handlerValidateChirp(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondWithJSON(w, http.StatusOK, returnVals{
-		Valid: true,
+		CleanedBody: badWordReplacer(params.Body, BadWords...),
 	})
 }
