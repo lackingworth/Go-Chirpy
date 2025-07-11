@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -26,6 +27,15 @@ func badWordReplacer(txt string, badWords ...string) string {
 	return strings.Join(sliceOfStrings, " ")
 }
 
+func validateChirp(body string) (string, error) {
+	const maxChitpLength = 140
+	if len(body) > maxChitpLength {
+		return "", errors.New("Chirp is too long")
+	}
+	cleaned := badWordReplacer(body, BadWords...)
+	return cleaned, nil
+}
+
 func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
 		Body   string    `json:"body"`
@@ -48,14 +58,13 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	const maxChirpLength = 140
-	if len(params.Body) > maxChirpLength {
-		respondWithError(w, http.StatusBadRequest, "Chirp is too long", nil)
+	cleaned, validateErr := validateChirp(params.Body)
+	if validateErr != nil {
+		respondWithError(w, http.StatusBadRequest, "Chirp is too long", validateErr)
 		return
 	}
 
-	cleanedBody := badWordReplacer(params.Body, BadWords...)
-	paramsCreateChirp := database.CreateChirpParams{Body: cleanedBody, UserID: params.UserID}
+	paramsCreateChirp := database.CreateChirpParams{Body: cleaned, UserID: params.UserID}
 
 	var count int
 	qrcErr := cfg.rawDbConn.QueryRowContext(r.Context(), "SELECT count(*) FROM users WHERE id=$1", paramsCreateChirp.UserID).Scan(&count)
