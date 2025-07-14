@@ -22,6 +22,7 @@ type apiConfig struct {
 	db             *database.Queries
 	rawDbConn      *sql.DB
 	platform       string
+	jwtSecret      string
 }
 
 func main() {
@@ -31,6 +32,14 @@ func main() {
 	dbUrl := os.Getenv("DB_URL")
 	if dbUrl == "" {
 		log.Fatal("DB_URL environment variable not set")
+	}
+	platform := os.Getenv("PLATFORM")
+	if platform == "" {
+		log.Fatal("PLATFORM environment variable not set")
+	}
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Fatal("JWT_SECRET environment variable not set")
 	}
 
 	db, err := sql.Open("postgres", dbUrl)
@@ -43,7 +52,8 @@ func main() {
 		fileServerHits: atomic.Int32{},
 		db:             dbQueries,
 		rawDbConn:      db,
-		platform:       os.Getenv("PLATFORM"),
+		platform:       platform,
+		jwtSecret:      jwtSecret,
 	}
 
 	mux := http.NewServeMux()

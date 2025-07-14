@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"guthub.com/lackingworth/Go-Chirpy/internal/auth"
 	"guthub.com/lackingworth/Go-Chirpy/internal/database"
 )
 
@@ -38,8 +39,7 @@ func validateChirp(body string) (string, error) {
 
 func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
-		Body   string    `json:"body"`
-		UserID uuid.UUID `json:"user_id"`
+		Body string `json:"body"`
 	}
 
 	type Chirp struct {
@@ -48,6 +48,18 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 		UpdatedAt time.Time `json:"updated_at"`
 		Body      string    `json:"body"`
 		UserID    uuid.UUID `json:"user_id"`
+	}
+
+	token, gbtErr := auth.GetBearerToken(r.Header)
+	if gbtErr != nil {
+		respondWithError(w, http.StatusUnauthorized, "Couldn't find JWT", gbtErr)
+		return
+	}
+
+	userID, validationErr := auth.ValidateJWT(token, cfg.jwtSecret)
+	if validationErr != nil {
+		respondWithError(w, http.StatusUnauthorized, "Couldn't validate JWT", validationErr)
+		return
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -64,7 +76,7 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	paramsCreateChirp := database.CreateChirpParams{Body: cleaned, UserID: params.UserID}
+	paramsCreateChirp := database.CreateChirpParams{Body: cleaned, UserID: userID}
 
 	var count int
 	qrcErr := cfg.rawDbConn.QueryRowContext(r.Context(), "SELECT count(*) FROM users WHERE id=$1", paramsCreateChirp.UserID).Scan(&count)
