@@ -23,6 +23,7 @@ type apiConfig struct {
 	rawDbConn      *sql.DB
 	platform       string
 	jwtSecret      string
+	polkaAPIKey    string
 }
 
 func main() {
@@ -41,6 +42,10 @@ func main() {
 	if jwtSecret == "" {
 		log.Fatal("JWT_SECRET environment variable not set")
 	}
+	polkaKey := os.Getenv("POLKA_API_KEY")
+	if polkaKey == "" {
+		log.Fatal("POLKA_API_KEY environment variable not set")
+	}
 
 	db, err := sql.Open("postgres", dbUrl)
 	if err != nil {
@@ -54,6 +59,7 @@ func main() {
 		rawDbConn:      db,
 		platform:       platform,
 		jwtSecret:      jwtSecret,
+		polkaAPIKey:    polkaKey,
 	}
 
 	mux := http.NewServeMux()

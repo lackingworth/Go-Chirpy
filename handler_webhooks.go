@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+	"guthub.com/lackingworth/Go-Chirpy/internal/auth"
 )
 
 func (cfg *apiConfig) handlerWebhook(w http.ResponseWriter, r *http.Request) {
@@ -15,6 +16,16 @@ func (cfg *apiConfig) handlerWebhook(w http.ResponseWriter, r *http.Request) {
 		Data  struct {
 			UserID uuid.UUID `json:"user_id"`
 		}
+	}
+
+	apiKey, apiErr := auth.GetAPIKey(r.Header)
+	if apiErr != nil {
+		respondWithError(w, http.StatusUnauthorized, "Couldn't find Polka API Key", apiErr)
+		return
+	}
+	if apiKey != cfg.polkaAPIKey {
+		respondWithError(w, http.StatusUnauthorized, "Invalid Polka API Key", apiErr)
+		return
 	}
 
 	decoder := json.NewDecoder(r.Body)
