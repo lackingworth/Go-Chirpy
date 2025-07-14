@@ -6,13 +6,13 @@ import (
 	"time"
 
 	"guthub.com/lackingworth/Go-Chirpy/internal/auth"
+	"guthub.com/lackingworth/Go-Chirpy/internal/database"
 )
 
 func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
-		Email            string `json:"email"`
-		Password         string `json:"password"`
-		ExpiresInSeconds int    `json:"expires_in_seconds"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
 	}
 	type response struct {
 		User
@@ -40,14 +40,27 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	expirationTime := time.Hour
-	if params.ExpiresInSeconds > 0 && params.ExpiresInSeconds < 3600 {
-		expirationTime = time.Duration(params.ExpiresInSeconds) * time.Second
+	accessToken, jwtErr := auth.MakeJWT(user.ID, cfg.jwtSecret, time.Hour)
+	if jwtErr != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't create access JWT", jwtErr)
+		return
 	}
 
-	accessToken, jwtErr := auth.MakeJWT(user.ID, cfg.jwtSecret, expirationTime)
-	if jwtErr != nil {
-		respondWithError(w, http.StatusInternalServerError, "Couldn't generate access JWT", jwtErr)
+	refreshToken, mrtErr := auth.MakeRefreshToken()
+	if mrtErr != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't create refresh token", mrtErr)
+		return
+	}
+
+	refreshTokenParams := database.CreateRefreshTokenParams{
+		UserID:    user.ID,
+		Token:     refreshToken,
+		ExpiresAt: time.Now().UTC().Add(time.Hour * 24 * 60),
+	}
+
+	_, crtErr := cfg.db.CreateRefreshToken(r.Context(), refreshTokenParams)
+	if crtErr != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't save refresh token", crtErr)
 		return
 	}
 
@@ -58,7 +71,8 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 			UpdatedAt: user.UpdatedAt,
 			Email:     user.Email,
 		},
-		Token: accessToken,
+		Token:        accessToken,
+		RefreshToken: refreshToken,
 	}
 	respondWithJSON(w, http.StatusOK, returnedResponse)
 }
