@@ -179,7 +179,3 @@
 * v.0.0.1:
 
     * Initial Release
-Motivation
-Quick Start
-Usage
-Contributing
